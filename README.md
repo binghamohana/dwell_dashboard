@@ -22,8 +22,10 @@ Projects, Resources).
 
 **For administrators**
 - **People records:** add, edit, deactivate; fix data issues; mark records verified against HR.
-- **Import:** upload the HR spreadsheet (.xlsx/.csv), review every change, match spellings to records,
-  resolve duplicates, protect verified records, then apply. The file itself isn't kept.
+- **Import:** a downloadable setup workbook (companies, legal entities, properties, departments and
+  people, with linked drop-down lists), or the raw HR spreadsheet (.xlsx/.csv). Review every change,
+  match spellings to records, resolve duplicates, protect verified records, then apply. The uploaded
+  file itself isn't kept.
 - **Notifications:** monthly summaries on the 1st, reminders 3 days before, day-of emails, no-owner
   and delivery-failure alerts. **Test mode by default**; preview any day; history with retries; going
   live needs an explicit, audited confirmation.
@@ -68,6 +70,7 @@ sql/schema.sql     tables
 bin/               install.php, cron.php, check.php, admin.php, backup.sh
 storage/           logs, photos, backups (not web-visible, not in Git)
 tests/             run.php (acceptance tests), seed-demo.php (fictional demo data)
+tools/             make_template.py (regenerates the setup workbook; Python 3 + openpyxl)
 ```
 
 ## Quick start (development)

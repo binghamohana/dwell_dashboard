@@ -15,6 +15,10 @@
     var $drop = $('<label class="dropzone">' + DC.icon('upload') + '<strong>Choose the employee spreadsheet</strong><span>Excel .xlsx or .csv · the file itself isn’t kept</span>' +
       '<input type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" hidden></label>');
     var $past = $('<div class="panel" style="margin-top:18px"><h2>Earlier imports</h2><div class="js-list"><div class="empty"><span class="spinner"></span></div></div></div>');
+    $main.append('<div class="panel" style="margin-bottom:18px"><h2>Setting up for the first time?</h2>' +
+      '<p class="small" style="margin:0 0 12px;color:var(--ink-2)">Download the fill-in workbook: one sheet each for companies, legal entities, properties, departments and people, with drop-down lists so everything links up. ' +
+      'Fill it in, upload it here, review, apply. You can upload it again later to make changes.</p>' +
+      '<a class="btn btn-sm btn-ghost" href="assets/templates/Dwell-Central-template.xlsx" download>' + DC.icon('file') + 'Download the template (.xlsx)</a></div>');
     $main.append($drop, '<p class="small muted" style="margin:12px 2px 0">Recognized columns include Employee Name (or First/Last Name), Employee ID, Work Email, Job Title, Department, Status, Company, Division / Property, Hire Date, ' +
       'Original Hire Date, Term Date, Classification, Birthday and Supervisor. Other columns are ignored.</p>', $past);
 
@@ -72,14 +76,35 @@
       if (plan.sheets.length > 1) {
         h += '<div class="field" style="max-width:420px"><label>Sheet</label><select class="select js-sheet">' + plan.sheets.map(function (sh) {
           return '<option value="' + esc(sh.name) + '"' + (sh.name === plan.sheet ? ' selected' : '') + (sh.header_row ? '' : ' disabled') + '>' + esc(sh.name) + ' (' + (sh.header_row ? DC.plural(sh.rows, 'row') : 'no header found') + ')</option>';
-        }).join('') + '</select><div class="field-hint">Use the sheet with everyone on it. Sheets that repeat the same people would be treated as the same records.</div></div>';
+        }).join('') + '</select>' + (plan.org && plan.org.present ? '' : '<div class="field-hint">Use the sheet with everyone on it. Sheets that repeat the same people would be treated as the same records.</div>') + '</div>';
       }
       h += '<div class="small" style="color:var(--ink-2)"><strong>Columns used:</strong> ' + plan.columns.map(function (c) { return esc(c.header) + ' → ' + esc(c.label); }).join(' · ') + '</div>';
       if (plan.ignored.length) h += '<div class="small muted" style="margin-top:4px"><strong>Not imported:</strong> ' + esc(plan.ignored.join(', ')) + '</div>';
       h += '</div>';
 
+      // Organization sheets (template)
+      if (plan.org && plan.org.present) {
+        var oc = plan.org.counts;
+        var sheetLabels = { brands: 'Companies', entities: 'Legal entities', properties: 'Properties', departments: 'Departments' };
+        h += '<div class="panel"><div class="step-title">Organization records</div><p class="panel-sub" style="margin:4px 0 12px">From the Companies, Legal entities, Properties and Departments sheets: ' +
+          oc.create + ' new, ' + oc.update + ' to update, ' + oc.unchanged + ' unchanged' + (oc.error ? ', ' + oc.error + ' skipped' : '') + '. Blank cells never erase saved values.</p>';
+        Object.keys(sheetLabels).forEach(function (t) {
+          var recs = (plan.org.records[t] || []);
+          if (!recs.length) return;
+          h += '<div class="section-title">' + sheetLabels[t] + '</div><div style="overflow-x:auto"><table class="table"><tbody>' + recs.map(function (r) {
+            var det = r.changes && r.changes.length ? '<ul class="changes">' + r.changes.map(function (c) {
+              return '<li>' + esc(c.label) + ': ' + (r.action === 'create' ? '' : '<del>' + esc(c.from) + '</del> → ') + '<ins>' + esc(c.to) + '</ins></li>';
+            }).join('') + '</ul>' : '';
+            if (r.issues && r.issues.length) det += '<ul class="issues">' + r.issues.map(function (i) { return '<li>' + esc(i) + '</li>'; }).join('') + '</ul>';
+            return '<tr><td class="sub" style="width:48px">' + r.row + '</td><td style="width:30%"><strong>' + esc(r.name || '—') + '</strong></td><td style="width:110px"><span class="act ' + (r.action === 'error' ? 'error' : r.action) + '">' +
+              esc({ create: 'New', update: 'Update', unchanged: 'No change', error: 'Skipped' }[r.action]) + '</span></td><td>' + det + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+        });
+        h += '</div>';
+      }
+
       // 2. Values to match
-      var needs = plan.values.filter(function (v) { return v.status !== 'matched'; });
+      var needs = plan.values.filter(function (v) { return v.status !== 'matched' && v.status !== 'template'; });
       h += '<div class="panel"><div class="step-title' + (s.values_unresolved ? '' : ' done') + '">Companies, properties and departments</div>';
       if (!plan.values.length) h += '<p class="panel-sub" style="margin:4px 0 0">None in this file.</p>';
       else if (!needs.length) h += '<p class="panel-sub" style="margin:4px 0 0">Every value matches an existing record.</p>';
@@ -157,16 +182,16 @@
 
       // Apply bar
       var ready = plan.ready;
-      var willChange = s.create + s.update + s.terminate_missing;
+      var willChange = s.create + s.update + s.terminate_missing + (s.org_changes || 0);
       h += '<div class="sticky-bar"><div class="msg">' + (ready
-        ? (willChange ? '<strong>Ready.</strong> ' + DC.plural(s.create, 'new person', 'new people') + ', ' + DC.plural(s.update, 'update') + (s.terminate_missing ? ', ' + s.terminate_missing + ' marked former' : '') + '. Nothing is saved until you apply.' : 'Nothing to change.')
+        ? (willChange ? '<strong>Ready.</strong> ' + (s.org_changes ? DC.plural(s.org_changes, 'organization record') + ', ' : '') + DC.plural(s.create, 'new person', 'new people') + ', ' + DC.plural(s.update, 'update') + (s.terminate_missing ? ', ' + s.terminate_missing + ' marked former' : '') + '. Nothing is saved until you apply.' : 'Nothing to change.')
         : '<strong>Choices needed:</strong> ' + [s.values_unresolved ? DC.plural(s.values_unresolved, 'value') + ' to match' : '', s.ambiguous ? DC.plural(s.ambiguous, 'person', 'people') + ' to identify' : ''].filter(Boolean).join(' and ') + '.') +
         '</div><button type="button" class="btn btn-ghost js-discard">Discard</button><button type="button" class="btn js-apply"' + (ready && willChange ? '' : ' disabled') + '>Apply import</button></div>';
       $body.html(h);
     }
 
     function fieldLabel(k) {
-      return { work_email: 'Email', job_title: 'Title', department_id: 'Department', entity_id: 'Entity', property_id: 'Property', status: 'Status', term_date: 'Term date', hire_date: 'Hired',
+      return { dotted_line_id: 'Dotted line', work_email: 'Email', job_title: 'Title', department_id: 'Department', entity_id: 'Entity', property_id: 'Property', status: 'Status', term_date: 'Term date', hire_date: 'Hired',
         original_hire_date: 'Originally hired', classification: 'Type', birthday: 'Birthday', hr_id: 'Employee ID', supervisor_id: 'Supervisor' }[k] || k;
     }
 
@@ -224,7 +249,7 @@
       var s = plan.summary;
       DC.confirm({
         title: 'Apply this import?',
-        html: '<p style="margin:0 0 10px;color:var(--ink-2)">This will add ' + DC.plural(s.create, 'person', 'people') + ' and update ' + DC.plural(s.update, 'record') +
+        html: '<p style="margin:0 0 10px;color:var(--ink-2)">This will ' + (s.org_changes ? 'add or update ' + DC.plural(s.org_changes, 'organization record') + ', ' : '') + 'add ' + DC.plural(s.create, 'person', 'people') + ' and update ' + DC.plural(s.update, 'record') +
           (s.terminate_missing ? ', and mark ' + s.terminate_missing + ' as former employees' : '') + '. Every change is recorded in the audit log.</p>' +
           (s.protected ? '<p class="small muted" style="margin:0">' + DC.plural(s.protected, 'verified record') + ' will be left as they are.</p>' : ''),
         ok: 'Apply import'
@@ -233,7 +258,7 @@
         var $b = $body.find('.js-apply');
         DC.busy($b, DC.post('import.apply', { id: id, decisions: decisions, hash: plan.hash }), 'Applying…').then(function (r) {
           var a = r.summary.applied;
-          DC.toast('Import applied: ' + a.created + ' added, ' + a.updated + ' updated' + (a.terminated ? ', ' + a.terminated + ' marked former' : '') + '.');
+          DC.toast('Import applied: ' + a.created + ' added, ' + a.updated + ' updated' + (a.terminated ? ', ' + a.terminated + ' marked former' : '') + (a.org_created || a.org_updated ? '; ' + (a.org_created + a.org_updated) + ' organization records' : '') + '.');
           DC.refreshMe();
           location.hash = '#/admin/people';
         }).catch(function (err) {

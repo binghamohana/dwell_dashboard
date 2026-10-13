@@ -376,32 +376,45 @@ function make_xlsx(array $rows): string
         fclose($fh);
         return $path;
     }
+    // A sheet map (name => rows) builds a workbook with several sheets; a plain list is one sheet.
+    $sheets = array_is_list($rows) ? ['Staff' => $rows] : $rows;
     $strings = [];
-    $sheet = '';
-    foreach ($rows as $ri => $row) {
-        $sheet .= '<row r="' . ($ri + 1) . '">';
-        foreach (array_values($row) as $ci => $v) {
-            if ($v === null) {
-                continue;
+    $xml = [];
+    foreach ($sheets as $name => $sheetRows) {
+        $sheet = '';
+        foreach ($sheetRows as $ri => $row) {
+            $sheet .= '<row r="' . ($ri + 1) . '">';
+            foreach (array_values($row) as $ci => $v) {
+                if ($v === null) {
+                    continue;
+                }
+                $ref = chr(65 + $ci) . ($ri + 1);
+                if (is_int($v) || is_float($v)) {
+                    $sheet .= '<c r="' . $ref . '"><v>' . $v . '</v></c>';
+                } else {
+                    $strings[] = htmlspecialchars((string) $v, ENT_XML1);
+                    $sheet .= '<c r="' . $ref . '" t="s"><v>' . (count($strings) - 1) . '</v></c>';
+                }
             }
-            $ref = chr(65 + $ci) . ($ri + 1);
-            if (is_int($v) || is_float($v)) {
-                $sheet .= '<c r="' . $ref . '"><v>' . $v . '</v></c>';
-            } else {
-                $strings[] = htmlspecialchars((string) $v, ENT_XML1);
-                $sheet .= '<c r="' . $ref . '" t="s"><v>' . (count($strings) - 1) . '</v></c>';
-            }
+            $sheet .= '</row>';
         }
-        $sheet .= '</row>';
+        $xml[$name] = $sheet;
     }
     $path = tempnam(sys_get_temp_dir(), 'dcx') . '.xlsx';
     $z = new ZipArchive();
     $z->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $sheetTags = $rels = '';
+    $n = 0;
+    foreach ($xml as $name => $sheet) {
+        $n++;
+        $sheetTags .= '<sheet name="' . htmlspecialchars((string) $name, ENT_XML1) . '" sheetId="' . $n . '" r:id="rId' . $n . '"/>';
+        $rels .= '<Relationship Id="rId' . $n . '" Type="worksheet" Target="worksheets/sheet' . $n . '.xml"/>';
+        $z->addFromString("xl/worksheets/sheet$n.xml", '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' . $sheet . '</sheetData></worksheet>');
+    }
     $z->addFromString('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>');
-    $z->addFromString('xl/workbook.xml', '<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Staff" sheetId="1" r:id="rId1"/></sheets></workbook>');
-    $z->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="worksheet" Target="worksheets/sheet1.xml"/></Relationships>');
+    $z->addFromString('xl/workbook.xml', '<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' . $sheetTags . '</sheets></workbook>');
+    $z->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' . $rels . '</Relationships>');
     $z->addFromString('xl/sharedStrings.xml', '<?xml version="1.0"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' . implode('', array_map(static fn ($s) => "<si><t>$s</t></si>", $strings)) . '</sst>');
-    $z->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' . $sheet . '</sheetData></worksheet>');
     $z->close();
     return $path;
 }
@@ -485,6 +498,62 @@ eq(plan_rows($plan4)['Wanda Wells']['action'], 'ambiguous', 'Two saved people wi
 ok(!$plan4['ready'], 'It can’t be applied until someone chooses');
 Importer::discard($id4);
 eq(Db::value('SELECT rows_json FROM imports WHERE id = ?', [$id4]), null, 'Discarding erases the uploaded rows');
+
+// ===================================================================== setup workbook (template)
+section('Setup workbook: organization sheets + people in one upload');
+if (!$zip) {
+    echo "  (skipped: multi-sheet workbooks need the zip extension)\n";
+} else {
+    $tplPath = DC_ROOT . '/public/assets/templates/Dwell-Central-template.xlsx';
+    $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+    copy($tplPath, $tmp);
+    $blank = Importer::preview(Importer::upload($admin, ['error' => UPLOAD_ERR_OK, 'tmp_name' => $tmp, 'name' => 'Dwell-Central-template.xlsx', 'size' => filesize($tmp)]));
+    ok($blank['org']['present'] && $blank['sheet'] === 'People', 'The downloadable template is recognized (People sheet + organization sheets)');
+    eq($blank['summary']['rows'], 0, 'The blank template contains no people');
+    $peopleHead = ['Employee ID', 'First name', 'Last name', 'Goes by', 'Work email', 'Job title', 'Department', 'Legal entity', 'Property / office',
+        'Supervisor', 'Dotted-line manager', 'Status', 'Classification', 'Hire date', 'Original hire date', 'Term date', 'Birth month', 'Birth day', 'To check (not imported)'];
+    $book = [
+        'Start here' => [['Dwell Central setup workbook']],
+        'Companies' => [['Company', 'Color'], ['Dwell Communities', '#1F3D4F'], ['Acme Living', null]],
+        'Legal entities' => [['Legal entity', 'Full legal name', 'Type', 'Company', 'Also known as'],
+            ['Dwell Communities, LLC', 'Dwell Communities Limited Liability Company', 'Employer', 'Dwell Communities', null],
+            ['Acme Living LLC', null, 'Employer', 'Acme Living', 'ACME LIVING; Acme']],
+        'Properties' => [['Property / office', 'Short name', 'Type', 'Company', 'Address', 'Property manager', 'Also known as'],
+            ['Maple Commons', null, 'Property', 'Dwell Communities', '12 Maple Ave', 'Pat Manager', null],
+            ['Cedar Court', 'Cedar', 'Property', 'Acme Living', null, 'mia@test.dev', 'CEDAR']],
+        'Departments' => [['Department', 'Also known as'], ['Leasing', 'Leasing Office']],
+        'People' => [$peopleHead,
+            ['E-100', 'Mia', 'Mason', null, 'mia@test.dev', 'Property Manager', 'Leasing', 'Acme Living LLC', 'Cedar Court', 'Rhea Regional', null, 'Active', 'Full time', serial('2022-02-01'), null, null, 'March', 3, 'note'],
+            ['E-101', 'Cody', 'Cedar', null, null, 'Leasing Agent', 'Leasing Office', 'ACME', 'CEDAR', 'Mia Mason', 'Rhea Regional', 'Active', 'Contractor / vendor', serial('2024-06-10'), null, null, 'Feb', 29, null]],
+    ];
+    $tid = upload($book);
+    $tp = Importer::preview($tid);
+    eq($tp['org']['counts'], ['create' => 4, 'update' => 2, 'unchanged' => 1, 'error' => 0], 'Organization sheets: 4 new, 2 updated (entity legal name; property address + manager), 1 unchanged');
+    ok($tp['ready'], 'People link to the sheets automatically: no choices needed');
+    $tr = plan_rows($tp);
+    eq($tr['Cody Cedar']['fields']['property_id'] ?? null, 'Cedar Court', '“Also known as” spellings resolve to the right property');
+    eq($tr['Cody Cedar']['fields']['supervisor_id'] ?? null, 'Mia Mason', 'Supervisor chosen from a person created in the same upload');
+    Importer::apply($admin, $tid, $tp['decisions'], $tp['hash']);
+    Employees::flush();
+    Organization::flush();
+    $cedar = Organization::match('properties', 'Cedar Court');
+    $acme = Organization::match('brands', 'Acme Living');
+    $mia = (int) Db::value("SELECT id FROM employees WHERE work_email = 'mia@test.dev'");
+    $cody = (int) Db::value("SELECT id FROM employees WHERE hr_id = 'E-101'");
+    ok($cedar && Organization::get('properties', $cedar)['brand_id'] === $acme, 'New property is linked to its new company');
+    eq(Organization::get('properties', $cedar)['manager_id'], $mia, 'Property manager linked by work email');
+    eq(Organization::get('properties', $maple)['manager_id'], $pm, 'Property manager linked by name');
+    eq(Organization::get('properties', $maple)['address'], '12 Maple Ave', 'Existing property updated (address)');
+    eq(Organization::get('entities', $entity)['legal_name'], 'Dwell Communities Limited Liability Company', 'Existing entity updated (full legal name)');
+    $codyRow = Employees::row($cody);
+    ok($codyRow['supervisor_id'] === $mia && $codyRow['dotted_line_id'] === $rm, 'Supervisor and dotted-line manager linked');
+    ok($codyRow['entity_id'] === Organization::match('entities', 'Acme Living LLC') && $codyRow['department_id'] === Organization::match('departments', 'Leasing'), 'Legal entity and department linked');
+    ok($codyRow['birth_month'] === 2 && $codyRow['birth_day'] === 29 && $codyRow['birthday_status'] === 'ok' && $codyRow['birth_year'] === null, 'Birthday from month + day columns (Feb 29), no year');
+    eq($codyRow['classification'], 'contractor', '“Contractor / vendor” classification');
+    eq(owner_of($cody), $mia, 'The new supervisor becomes the celebration owner');
+    $again = Importer::preview(upload($book));
+    ok($again['org']['counts']['create'] === 0 && $again['org']['counts']['update'] === 0 && $again['summary']['create'] === 0 && $again['summary']['update'] === 0, 'Uploading the same workbook again changes nothing');
+}
 
 echo "\n" . ($fail ? "FAILED: $fail failed, $pass passed\n" : "All $pass tests passed.\n");
 exit($fail ? 1 : 0);

@@ -42,12 +42,15 @@ final class Importer
         'status'             => ['Status', ['employee status', 'status', 'employment status']],
         'term_date'          => ['Term date', ['term date', 'termination date', 'separation date', 'end date']],
         'company'            => ['Company / legal entity', ['company name', 'company', 'entity', 'legal entity', 'employer']],
-        'division'           => ['Property / division', ['division', 'property', 'location', 'site', 'community', 'property name']],
+        'division'           => ['Property / division', ['division', 'property', 'location', 'site', 'community', 'property name', 'property office', 'primary property', 'property or office']],
         'hire_date'          => ['Hire date', ['client hire date', 'hire date', 'most recent hire date', 'rehire date', 'start date', 'date of hire']],
         'original_hire_date' => ['Original hire date', ['original hire date', 'first hire date', 'seniority date']],
         'classification'     => ['Classification', ['classification', 'employment type', 'worker type', 'employee type']],
         'birth'              => ['Birthday', ['birth', 'birth date', 'birthday', 'date of birth', 'dob']],
+        'birth_month'        => ['Birth month', ['birth month', 'birthday month', 'month of birth']],
+        'birth_day'          => ['Birth day', ['birth day', 'birthday day', 'day of birth']],
         'supervisor'         => ['Supervisor', ['supervisor', 'manager', 'reports to', 'supervisor name', 'manager name', 'supervisor email', 'manager email', 'direct supervisor']],
+        'dotted_line'        => ['Dotted-line manager', ['dotted line manager', 'dotted line', 'dotted line supervisor']],
     ];
 
     private const LABELS = [
@@ -55,7 +58,7 @@ final class Importer
         'work_email' => 'Work email', 'job_title' => 'Job title', 'department_id' => 'Department', 'entity_id' => 'Legal entity',
         'property_id' => 'Property', 'status' => 'Status', 'term_date' => 'Term date', 'hire_date' => 'Hire date',
         'original_hire_date' => 'Original hire date', 'classification' => 'Classification', 'birthday' => 'Birthday',
-        'birth_year' => 'Birth year', 'supervisor_id' => 'Supervisor', 'hire_status' => 'Hire date check',
+        'birth_year' => 'Birth year', 'supervisor_id' => 'Supervisor', 'hire_status' => 'Hire date check', 'dotted_line_id' => 'Dotted-line manager',
     ];
 
     private const VALUE_TABLES = ['entity' => 'entities', 'property' => 'properties', 'department' => 'departments'];
@@ -214,6 +217,7 @@ final class Importer
         }
         $includeTerminated = !empty($decisions['include_terminated']);
         $rowDecisions = (array) ($decisions['rows'] ?? []);
+        $org = OrgSheets::plan($book['sheets'] ?? []);
         $storeYear = (bool) Settings::get('store_birth_year');
         $today = Time::today();
 
@@ -281,7 +285,12 @@ final class Importer
                 $choice = $valueDecisions[$kind][$k] ?? null;
                 $entry = ['kind' => $kind, 'key' => (string) $k, 'value' => $spelling, 'rows' => $info['rows'], 'matched' => $match,
                     'suggestion' => self::suggest($kind, $groups[self::baseKey((string) $k)]['spelling']), 'choice' => $choice];
-                if ($match && (!$choice || ($choice['action'] ?? '') === 'auto')) {
+                $fromSheet = $org['lookup'][$kind][$k] ?? null;
+                if ($fromSheet) {
+                    // Listed on the template's organization sheet
+                    $resolved[$kind][$k] = $fromSheet;
+                    $entry['status'] = 'template';
+                } elseif ($match && (!$choice || ($choice['action'] ?? '') === 'auto')) {
                     $resolved[$kind][$k] = ['id' => $match, 'name' => Organization::get($table, $match)['name']];
                     $entry['status'] = 'matched';
                 } elseif (($choice['action'] ?? '') === 'map' && Organization::get($table, (int) ($choice['id'] ?? 0))) {
@@ -472,64 +481,94 @@ final class Importer
             $planRows[] = $out;
         }
 
-        // ---- supervisors (by email or name, within the file or saved records)
-        $supervisorMissing = 0;
-        if (isset($columns['supervisor'])) {
-            $fileByKey = [];
-            foreach ($parsed as $p) {
-                if (!$p['error']) {
-                    $fileByKey[$p['key']][] = $p['row'];
-                    if ($p['alt_key']) {
-                        $fileByKey[$p['alt_key']][] = $p['row'];
-                    }
-                    if (!empty($p['data']['work_email'])) {
-                        $fileByKey[$p['data']['work_email']][] = $p['row'];
-                    }
+        // ---- people referred to by name or email: supervisors, dotted-line managers, property managers
+        $fileByKey = [];
+        foreach ($parsed as $p) {
+            if (!$p['error']) {
+                $fileByKey[$p['key']][] = $p['row'];
+                if ($p['alt_key']) {
+                    $fileByKey[$p['alt_key']][] = $p['row'];
+                }
+                if (!empty($p['data']['work_email'])) {
+                    $fileByKey[$p['data']['work_email']][] = $p['row'];
                 }
             }
-            $rowIndex = [];
-            foreach ($planRows as $idx => $pr) {
-                $rowIndex[$pr['row']] = $idx;
+        }
+        $rowIndex = [];
+        foreach ($planRows as $idx => $pr) {
+            $rowIndex[$pr['row']] = $idx;
+        }
+        $kept = ['create', 'update', 'unchanged', 'protected'];
+        /** A person (saved id, or "row:N" for someone this import creates), or null if not found / not unique. */
+        $findPerson = static function (string $ref) use ($fileByKey, $rowIndex, &$planRows, $byEmail, $byKey, $kept) {
+            $k = str_contains($ref, '@') ? strtolower(trim($ref)) : Util::nameKey($ref);
+            $fileRows = array_values(array_unique($fileByKey[$k] ?? []));
+            if (count($fileRows) === 1) {
+                $t = $planRows[$rowIndex[$fileRows[0]]] ?? null;
+                return $t && in_array($t['action'], $kept, true) ? ($t['employee_id'] ? (int) $t['employee_id'] : 'row:' . $t['row']) : null;
+            }
+            if ($fileRows) {
+                return null;
+            }
+            $ids = str_contains($k, '@') ? (isset($byEmail[$k]) ? [$byEmail[$k]] : []) : array_values(array_unique($byKey[$k] ?? []));
+            return count($ids) === 1 ? $ids[0] : null;
+        };
+        $personName = static fn ($target) => is_int($target) ? Employees::displayName(Employees::row($target)) : $planRows[$rowIndex[(int) substr($target, 4)]]['name'];
+
+        $supervisorMissing = 0;
+        foreach (['supervisor' => ['supervisor_id', 'supervisor_ref', 'Supervisor'], 'dotted_line' => ['dotted_line_id', 'dotted_ref', 'Dotted-line manager']] as $f => [$col, $refKey, $label]) {
+            if (!isset($columns[$f])) {
+                continue;
             }
             foreach ($parsed as $p) {
-                $ref = $p['raw']['supervisor'] ?? null;
-                if (!isset($rowIndex[$p['row']]) || $ref === null || trim((string) $ref) === '') {
+                $ref = trim((string) ($p['raw'][$f] ?? ''));
+                if (!isset($rowIndex[$p['row']]) || $ref === '') {
                     continue;
                 }
                 $idx = $rowIndex[$p['row']];
-                if (!in_array($planRows[$idx]['action'], ['create', 'update', 'unchanged', 'protected'], true)) {
+                if (!in_array($planRows[$idx]['action'], $kept, true)) {
                     continue;
                 }
-                $ref = trim((string) $ref);
-                $k = str_contains($ref, '@') ? strtolower($ref) : Util::nameKey($ref);
-                $target = null;
-                $fileRows = array_values(array_unique($fileByKey[$k] ?? []));
-                if (count($fileRows) === 1) {
-                    $t = $planRows[$rowIndex[$fileRows[0]]] ?? null;
-                    if ($t && in_array($t['action'], ['create', 'update', 'unchanged', 'protected'], true)) {
-                        $target = $t['employee_id'] ? (int) $t['employee_id'] : 'row:' . $t['row'];
-                    }
-                } elseif (!$fileRows) {
-                    $ids = str_contains($k, '@') ? (isset($byEmail[$k]) ? [$byEmail[$k]] : []) : array_values(array_unique($byKey[$k] ?? []));
-                    if (count($ids) === 1) {
-                        $target = $ids[0];
-                    }
-                }
+                $target = $findPerson($ref);
                 if ($target === null) {
-                    $planRows[$idx]['issues'][] = "Supervisor “{$ref}” wasn’t found (or matches more than one person)";
-                    $supervisorMissing++;
+                    $planRows[$idx]['issues'][] = "$label “{$ref}” wasn’t found (or matches more than one person)";
+                    $supervisorMissing += $f === 'supervisor' ? 1 : 0;
                     continue;
                 }
-                $planRows[$idx]['supervisor_ref'] = $target;
-                $supName = is_int($target) ? Employees::displayName(Employees::row($target)) : $planRows[$rowIndex[(int) substr($target, 4)]]['name'];
-                $planRows[$idx]['fields']['supervisor_id'] = $supName;
-                $current = $planRows[$idx]['employee_id'] ? Employees::row((int) $planRows[$idx]['employee_id'])['supervisor_id'] : null;
+                if ($target === ($planRows[$idx]['employee_id'] ?: 'row:' . $p['row'])) {
+                    $planRows[$idx]['issues'][] = "$label can’t be the person themselves";
+                    continue;
+                }
+                $planRows[$idx][$refKey] = $target;
+                $name = $personName($target);
+                $planRows[$idx]['fields'][$col] = $name;
+                $current = $planRows[$idx]['employee_id'] ? Employees::row((int) $planRows[$idx]['employee_id'])[$col] : null;
                 if ($target !== $current && $planRows[$idx]['employee_id'] !== null) {
-                    $planRows[$idx]['changes'][] = ['field' => 'supervisor_id', 'label' => 'Supervisor',
-                        'from' => $current ? Employees::displayName(Employees::row($current)) : '—', 'to' => $supName];
+                    $planRows[$idx]['changes'][] = ['field' => $col, 'label' => $label,
+                        'from' => $current ? Employees::displayName(Employees::row($current)) : '—', 'to' => $name];
                     if ($planRows[$idx]['action'] === 'unchanged') {
                         $planRows[$idx]['action'] = Employees::row((int) $planRows[$idx]['employee_id'])['verified_at'] && empty($planRows[$idx]['decision']['overwrite']) ? 'protected' : 'update';
                     }
+                }
+            }
+        }
+        foreach ($org['records']['properties'] ?? [] as $i => $rec) {
+            if (empty($rec['manager']) || $rec['action'] === 'error') {
+                continue;
+            }
+            $target = $findPerson($rec['manager']);
+            if ($target === null) {
+                $org['records']['properties'][$i]['issues'][] = 'Property manager “' . $rec['manager'] . '” wasn’t found on the People sheet or in Dwell Central';
+                continue;
+            }
+            $org['records']['properties'][$i]['manager_ref'] = $target;
+            $current = $rec['id'] ? (Organization::get('properties', $rec['id'])['manager_id'] ?? null) : null;
+            if ($target !== $current) {
+                $org['records']['properties'][$i]['changes'][] = ['field' => 'manager_id', 'from' => $current ? Employees::displayName(Employees::row($current)) : '—', 'to' => $personName($target)];
+                if ($rec['action'] === 'unchanged') {
+                    $org['records']['properties'][$i]['action'] = 'update';
+                    $org['counts']['unchanged']--;
+                    $org['counts']['update']++;
                 }
             }
         }
@@ -562,9 +601,16 @@ final class Importer
             'terminate_missing'  => count(array_filter($missing, static fn ($m) => $m['terminate'])),
             'needs_review'       => $review,
             'supervisor_missing' => $supervisorMissing,
+            'org_changes'        => $org['counts']['create'] + $org['counts']['update'],
         ];
         $ready = $unresolved === 0 && $counts['ambiguous'] === 0;
-        $hashable = array_map(static fn ($pr) => [$pr['row'], $pr['action'], $pr['employee_id'], $pr['data'] ?? null, $pr['set'] ?? null, $pr['supervisor_ref'] ?? null], $planRows);
+        $hashable = array_map(static fn ($pr) => [$pr['row'], $pr['action'], $pr['employee_id'], $pr['data'] ?? null, $pr['set'] ?? null, $pr['supervisor_ref'] ?? null, $pr['dotted_ref'] ?? null], $planRows);
+        $orgHash = [];
+        foreach ($org['records'] as $table => $recs) {
+            foreach ($recs as $rec) {
+                $orgHash[] = [$table, $rec['row'], $rec['action'], $rec['id'], $rec['input'], $rec['manager_ref'] ?? null];
+            }
+        }
         $previous = Db::one("SELECT id, created_at, status FROM imports WHERE file_hash = ? AND id <> ? AND status = 'applied' ORDER BY id DESC LIMIT 1", [$imp['file_hash'], $imp['id']]);
 
         return [
@@ -585,7 +631,13 @@ final class Importer
             'summary'     => $summary,
             'ready'       => $ready,
             'decisions'   => $decisions,
-            'hash'        => hash('sha256', Util::json([$hashable, $missing, $resolved])),
+            'hash'        => hash('sha256', Util::json([$hashable, $missing, $resolved, $orgHash])),
+            'org'         => ['present' => $org['present'], 'records' => array_map(static fn ($recs) => array_map(static function ($r) {
+                unset($r['input']);
+                $r['changes'] = array_map(static fn ($c) => $c + ['label' => OrgSheets::LABELS[$c['field']] ?? $c['field']], $r['changes']);
+                return $r;
+            }, $recs), $org['records']), 'counts' => $org['counts']],
+            '_org'        => $org,
             'previously_applied' => $previous,
             '_rows'       => $planRows,
             '_resolved'   => $resolved,
@@ -640,7 +692,7 @@ final class Importer
             $status = match (true) {
                 $s === '' => 'active',
                 in_array($s, ['active', 'a', 'act', 'current', 'employed'], true) => 'active',
-                in_array($s, ['terminated', 'term', 'termed', 'inactive', 't', 'separated', 'former'], true) => 'terminated',
+                in_array($s, ['terminated', 'term', 'termed', 'inactive', 't', 'separated', 'former', 'former employee'], true) => 'terminated',
                 in_array($s, ['leave', 'on leave', 'loa', 'leave of absence'], true) => 'leave',
                 default => '?',
             };
@@ -683,7 +735,7 @@ final class Importer
             $data['classification'] = match (true) {
                 in_array($class, ['full time', 'full-time', 'fulltime', 'ft'], true) => 'full_time',
                 in_array($class, ['part time', 'part-time', 'parttime', 'pt'], true) => 'part_time',
-                in_array($class, ['vendor', 'contractor', 'independent contractor', '1099'], true) => 'contractor',
+                in_array($class, ['vendor', 'contractor', 'independent contractor', '1099', 'contractor / vendor', 'contractor/vendor', 'contractor or vendor'], true) => 'contractor',
                 in_array($class, ['temp', 'temporary', 'seasonal'], true) => 'temporary',
                 default => 'other',
             };
@@ -757,7 +809,18 @@ final class Importer
             }
         } elseif ($birthRaw !== null && trim((string) $birthRaw) !== '') {
             $issues[] = 'Birthday “' . $birthRaw . '” wasn’t understood (not imported)';
-        } elseif (isset($columns['birth']) && $status !== 'terminated') {
+        } elseif (isset($columns['birth_month'], $columns['birth_day']) && (trim((string) ($raw['birth_month'] ?? '')) !== '' || trim((string) ($raw['birth_day'] ?? '')) !== '')) {
+            // Template layout: separate month and day columns (no year).
+            $m = self::monthNumber($raw['birth_month'] ?? null);
+            $d = is_numeric($raw['birth_day'] ?? null) ? (int) $raw['birth_day'] : 0;
+            if ($m && Rules::validMonthDay($m, $d)) {
+                $data['birth_month'] = $m;
+                $data['birth_day'] = $d;
+                $data['birthday_status'] = 'ok';
+            } else {
+                $issues[] = 'Birthday “' . trim(($raw['birth_month'] ?? '') . ' ' . ($raw['birth_day'] ?? '')) . '” isn’t a real date (not imported)';
+            }
+        } elseif ((isset($columns['birth']) || isset($columns['birth_day'])) && $status !== 'terminated') {
             $issues[] = 'No birthday in the file';
         }
 
@@ -783,6 +846,18 @@ final class Importer
         ];
     }
 
+    /** "October", "Oct", "10" → 10 */
+    private static function monthNumber(mixed $v): ?int
+    {
+        if (is_numeric($v)) {
+            $n = (int) $v;
+            return $n >= 1 && $n <= 12 ? $n : null;
+        }
+        $k = strtolower(substr(trim((string) $v), 0, 3));
+        $i = array_search($k, ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'], true);
+        return $i === false ? null : $i + 1;
+    }
+
     private static function show(string $field, mixed $value): string
     {
         if ($value === null || $value === '') {
@@ -794,7 +869,7 @@ final class Importer
             'entity_id'      => is_int($value) ? (Organization::get('entities', $value)['name'] ?? '?') : (string) $value,
             'property_id'    => is_int($value) ? (Organization::get('properties', $value)['name'] ?? '?') : (string) $value,
             'department_id'  => is_int($value) ? (Organization::get('departments', $value)['name'] ?? '?') : (string) $value,
-            'supervisor_id'  => is_int($value) ? (Employees::row($value) ? Employees::displayName(Employees::row($value)) : '?') : (string) $value,
+            'supervisor_id', 'dotted_line_id' => is_int($value) ? (Employees::row($value) ? Employees::displayName(Employees::row($value)) : '?') : (string) $value,
             default          => (string) $value,
         };
     }
@@ -854,6 +929,8 @@ final class Importer
             // New companies / properties / departments the administrator approved
             $created = [];
             $map = [];
+            // The template's organization sheets first, so people can link to them
+            [$orgCreated, $orgUpdated] = OrgSheets::apply($plan['_org'], $map);
             foreach ($plan['values'] as $v) {
                 $table = self::VALUE_TABLES[$v['kind']];
                 if ($v['status'] === 'new') {
@@ -880,7 +957,7 @@ final class Importer
             $fix = static fn ($value) => is_string($value) && isset($map[$value]) ? $map[$value] : $value;
 
             $ids = [];
-            $counts = ['created' => 0, 'updated' => 0, 'terminated' => 0, 'supervisors' => 0];
+            $counts = ['created' => 0, 'updated' => 0, 'terminated' => 0, 'supervisors' => 0, 'org_created' => $orgCreated, 'org_updated' => $orgUpdated];
             foreach ($plan['_rows'] as $pr) {
                 if ($pr['action'] === 'create') {
                     $data = array_map($fix, $pr['data']);
@@ -897,22 +974,36 @@ final class Importer
                     $ids[$pr['row']] = (int) $pr['employee_id'];
                 }
             }
-            // Supervisors, once everyone exists
-            foreach ($plan['_rows'] as $pr) {
-                if (!isset($pr['supervisor_ref'], $ids[$pr['row']]) || $pr['action'] === 'protected') {
+            // Supervisors and dotted-line managers, once everyone exists
+            foreach (['supervisor_ref' => 'supervisor_id', 'dotted_ref' => 'dotted_line_id'] as $refKey => $col) {
+                foreach ($plan['_rows'] as $pr) {
+                    if (!isset($pr[$refKey], $ids[$pr['row']]) || $pr['action'] === 'protected') {
+                        continue;
+                    }
+                    $ref = $pr[$refKey];
+                    $target = is_int($ref) ? $ref : ($ids[(int) substr($ref, 4)] ?? null);
+                    $me = $ids[$pr['row']];
+                    if ($target && $target !== $me && Employees::row($me)[$col] !== $target) {
+                        try {
+                            Employees::save(['id' => $me, $col => $target], $source);
+                            $counts['supervisors'] += $col === 'supervisor_id' ? 1 : 0;
+                        } catch (AppError $e) {
+                            // e.g. a loop in the reporting chain; leave as is and report it
+                            $counts['supervisor_errors'][] = $pr['name'] . ': ' . $e->getMessage();
+                        }
+                    }
+                }
+            }
+            // Property managers named on the Properties sheet
+            foreach ($plan['_org']['records']['properties'] ?? [] as $rec) {
+                if (!isset($rec['manager_ref'], $map[$rec['ref']])) {
                     continue;
                 }
-                $ref = $pr['supervisor_ref'];
-                $supId = is_int($ref) ? $ref : ($ids[(int) substr($ref, 4)] ?? null);
-                $me = $ids[$pr['row']];
-                if ($supId && $supId !== $me && Employees::row($me)['supervisor_id'] !== $supId) {
-                    try {
-                        Employees::save(['id' => $me, 'supervisor_id' => $supId], $source);
-                        $counts['supervisors']++;
-                    } catch (AppError $e) {
-                        // e.g. a loop in the reporting chain; leave as is and report it
-                        $counts['supervisor_errors'][] = $pr['name'] . ': ' . $e->getMessage();
-                    }
+                $ref = $rec['manager_ref'];
+                $managerId = is_int($ref) ? $ref : ($ids[(int) substr($ref, 4)] ?? null);
+                $propertyId = (int) $map[$rec['ref']];
+                if ($managerId && (Organization::get('properties', $propertyId)['manager_id'] ?? null) !== $managerId) {
+                    Organization::save('properties', ['id' => $propertyId, 'manager_id' => $managerId]);
                 }
             }
             // People not in the file, if the administrator chose to mark them as former employees
@@ -933,8 +1024,8 @@ final class Importer
                 'rows_json'  => null, // the personnel rows are not kept
             ], 'id = :id', ['id' => $imp['id']]);
             Audit::log('import_apply', 'import', (int) $imp['id'], sprintf(
-                'Applied import of %s: %d added, %d updated, %d marked former',
-                $imp['file_name'], $counts['created'], $counts['updated'], $counts['terminated']
+                'Applied import of %s: %d added, %d updated, %d marked former; %d organization records added, %d updated',
+                $imp['file_name'], $counts['created'], $counts['updated'], $counts['terminated'], $orgCreated, $orgUpdated
             ), $summary);
             return $summary;
         });
@@ -973,7 +1064,7 @@ final class Importer
     /** The plan without internal fields (for API responses). */
     public static function strip(array $plan): array
     {
-        unset($plan['_rows'], $plan['_resolved']);
+        unset($plan['_rows'], $plan['_resolved'], $plan['_org']);
         return $plan;
     }
 }

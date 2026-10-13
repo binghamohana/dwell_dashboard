@@ -5,27 +5,40 @@ once it's set up). Sessions last 7 days per device.
 
 ## First-time setup
 
-1. **Settings**: check the celebration rules (February 29, anniversaries from the most recent hire,
+The quickest way in is the **setup workbook**: one Excel file with a sheet each for companies, legal
+entities, properties, departments and people. The lists on the People sheet come from the other sheets,
+so every person links to real records instead of free text.
+
+1. **Settings:** check the celebration rules (February 29, anniversaries from the most recent hire,
    contractors, birth year) and the email schedule. Pick yourself as the **test-mode inbox**.
-2. **Import → choose the HR spreadsheet.** Pick the sheet with everyone on it (for the current file,
-   "Cross Company Employee Data", not the per-division sheets). Then:
-   - **Companies, properties and departments:** for each spelling in the file, create a record (edit the
-     name first, e.g. `GROVE PARK RENEWAL,INC.` → `Grove Park Renewal, Inc.`), match it to an existing
-     one, or leave it blank. "Use all suggestions" fills in sensible defaults; spellings that differ only
-     by "LLC"/"Inc." get the same name and become one record.
-   - **People:** review the *Changes* and *With notes* tabs. Impossible birth dates are imported as
-     "needs review" (not celebrated). Former employees aren't imported.
-   - **Apply import.** Nothing is saved before this.
-3. **Organization:** set each company's color, each property's full name and **property manager**
-   (the fallback when a supervisor isn't available), and add departments.
-4. **People records:** work through the "Needs" filters, starting with *No supervisor* and *No work
-   email*: these decide who receives reminders. Fix birthdays marked *needs review*. Tick **Verified**
-   once a record is checked against HR; imports then can't change it without your approval.
+2. **Import → Download the template.** Fill in the sheets in order (the "Start here" sheet explains each
+   column):
+   - **Companies:** Dwell Communities and 58 Place are already there.
+   - **Legal entities:** each employer of record, its type (Employer or Contractors (1099)) and company.
+     Put spellings from payroll/HR exports in *Also known as* so later HR files match automatically.
+   - **Properties:** every community, office and team, its company, address and **property manager**
+     (the fallback when someone's supervisor isn't available).
+   - **Departments:** Leasing, Maintenance, and so on.
+   - **People:** one row per current team member. Most important: **Supervisor** and **Work email** (they
+     decide who gets each reminder). Birthdays are month and day only.
+3. **Import → upload the workbook → review.** The review shows the organization records to create or
+   update, then every person, with notes for anything that looks wrong. **Apply** saves it all at once.
+   Upload an updated copy any time: unchanged rows are skipped, blank cells never erase saved data,
+   and verified records are protected.
+4. **People records:** work through the "Needs" filters (*No supervisor*, *No work email*, birthdays to
+   review). Tick **Verified** once a record is checked against HR; imports then can't change it without
+   your approval.
 5. **Users & access:** add executives and managers (see *Roles* below). Each manager must be linked to
    their own record so the app knows whose information they may see.
 6. **Notifications → Preview a day:** pick the 1st of next month and read exactly what each supervisor
    would receive. Run today's check in test mode and look at the copies in your inbox.
 7. When leadership approves: **Notifications → Live**, type `GO LIVE`.
+
+The raw HR export (e.g. *Cross Company Employee Data*) can also be imported directly: choose its main
+sheet, match each company/division spelling to a record (or create one), review and apply.
+
+Please don't edit the tables in phpMyAdmin: the app keeps IDs, links between records, data checks and the
+audit log consistent, and direct edits bypass all of them.
 
 ## Everyday tasks
 
@@ -40,6 +53,7 @@ once it's set up). Sessions last 7 days per device.
 | Change who reminds someone | Set their **Supervisor**, or a **Celebration owner** for special cases. The profile shows who it is and why |
 | Someone prefers no birthday fuss | Edit → untick *Celebrate their birthday* |
 | Upload a photo | Edit → **Upload approved photo** (only with the person's OK; visible to signed-in staff only) |
+| Add or change many people or properties at once | Update your setup workbook and **Import** it again |
 | Re-import a newer HR file | **Import** again. Unchanged people show "No change"; verified records are protected; people missing from the file are listed but only marked as former if you tick them |
 | Mark a celebration as done | Click it (dashboard or calendar) → **Planned / Celebrated / Skipped** |
 | Check an email | **Notifications** → click a row to see the message exactly as sent, who it was for, and any error. **Retry** failed ones after fixing the mail settings |

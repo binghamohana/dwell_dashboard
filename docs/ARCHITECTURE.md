@@ -118,7 +118,13 @@ calendar use the same data and permissions.
 ## 6. Spreadsheet import
 
 `src/Import/SpreadsheetReader.php` reads `.xlsx` with PHP's zip + XML extensions (no libraries) or
-`.csv`. `src/Import/Importer.php`:
+`.csv`. Two kinds of file are accepted: the **setup workbook** downloaded from the Import page
+(`public/assets/templates/Dwell-Central-template.xlsx`: Companies, Legal entities, Properties,
+Departments and People sheets, with drop-down lists linking them), and raw HR exports. For the setup
+workbook, `src/Import/OrgSheets.php` matches each organization row by name or "also known as"
+spelling, plans creates and updates (blank cells never erase), and the People sheet's choices resolve to
+those records automatically; property managers, supervisors and dotted-line managers are linked by name
+or work email once everyone is known. `src/Import/Importer.php`:
 
 1. Detects the header row and maps columns by name (`Employee Name`, `Client Hire Date`, `Birth`,
    `Division`, `Supervisor`…); unrecognized columns are listed and ignored.
@@ -181,7 +187,7 @@ account that can access only that calendar.
 | 4. Celebrations dashboard: KPIs, calendar with filters, upcoming list with notification status, follow-through | Done |
 | 5. Notifications: monthly/advance/day-of/alerts, test mode, preview, history, retries | Done, in test mode until approved |
 | 6. Google Calendar | Designed; waiting for approval (Google Cloud project, service account, calendar owner) |
-| 7. Testing and deployment | 116 automated acceptance tests (PHP 8.1 and 8.3); deployment and admin guides; deploy to `/dash` once decisions are made |
+| 7. Testing and deployment | 133 automated acceptance tests (PHP 8.1 and 8.3); deployment and admin guides; deploy to `/dash` once decisions are made |
 
 ## 10. Acceptance tests (brief §Acceptance → `tests/run.php`)
 

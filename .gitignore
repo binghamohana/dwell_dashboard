@@ -10,4 +10,6 @@
 *.xls
 *.csv
 !/tests/fixtures/*.csv
+# …except the blank setup template people download from the Import page
+!/public/assets/templates/*.xlsx
 .DS_Store

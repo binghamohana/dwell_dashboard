@@ -107,7 +107,8 @@ sudo -u www-data php bin/check.php
 ```
 
 Then open `https://www.58dwell.com/dash/`, sign in, and follow **First-time setup** in the
-[admin guide](ADMIN-GUIDE.md): import the HR spreadsheet, review the data issues, add users. Celebration
+[admin guide](ADMIN-GUIDE.md): fill in the setup workbook (Import → Download the template), upload it,
+review, apply, then add users. Celebration
 emails stay in **test mode** until you switch them to live inside the app.
 
 ## 8. Email (PHPMailer)
@@ -170,6 +171,6 @@ sudo -u www-data php bin/admin.php password you@yourdomain.com
 - Fictional demo data: `php tests/seed-demo.php` (refuses unless `debug` is on and the database is
   empty). Sign in as `admin@example.com` / `dwell-demo-2026`.
 - Tests: `DC_DB_NAME=dwell_test php tests/run.php` against a separate database whose name contains
-  `test` (it is wiped each run). 116 checks; also run on PHP 8.1.
+  `test` (it is wiped each run). 133 checks; also run on PHP 8.1.
 - No build step. Files in `public/assets` are cache-busted automatically. d3 7.9.0 and jQuery 3.7.1
   are vendored in `public/assets/vendor`.
