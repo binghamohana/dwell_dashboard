@@ -64,8 +64,12 @@ sudo -u www-data php bin/admin.php create you@yourdomain.com "Your Name"
 ## 5. Publish at /dash
 
 ```bash
+ls -ld /var/www/verus/fiftyeight/dash      # should say "No such file or directory"
 sudo ln -s /var/www/dwell-central/public /var/www/verus/fiftyeight/dash
 ```
+
+If a `dash` folder already exists, move it aside first (`sudo mv /var/www/verus/fiftyeight/dash /root/dash-old`):
+otherwise `ln` puts the link *inside* it, and `/dash/` shows a file listing with a `public/` folder.
 
 This is the same symlink approach that already works for `/book`. If `/dash/` returns 403, add
 `Options +FollowSymLinks` for the site, or use an Alias in the site's Apache config instead:
