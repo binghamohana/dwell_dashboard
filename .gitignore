@@ -1,0 +1,13 @@
+/config/config.php
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/photos/*
+!/storage/photos/.gitkeep
+/storage/backups/
+/storage/*.lock
+# Personnel data never goes into Git
+*.xlsx
+*.xls
+*.csv
+!/tests/fixtures/*.csv
+.DS_Store

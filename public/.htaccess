@@ -1,0 +1,19 @@
+# Apache settings for the web folder (used when AllowOverride permits; the
+# same rules are in docs/apache-dash.conf for servers that disable .htaccess).
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|woff2|svg|png)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+  # Personnel pages and API responses are never cached or indexed
+  <FilesMatch "\.php$">
+    Header set X-Robots-Tag "noindex, nofollow"
+  </FilesMatch>
+</IfModule>
+
+# Never serve dotfiles
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
