@@ -35,7 +35,7 @@ $brands = [];
 foreach (Db::all('SELECT id, name FROM brands') as $b) {
     $brands[$b['name']] = (int) $b['id'];
 }
-$dwell = $brands['Dwell Communities'] ?? Organization::save('brands', ['name' => 'Dwell Communities', 'color' => '#1F3D4F']);
+$dwell = $brands['Dwell Communities'] ?? Organization::save('brands', ['name' => 'Dwell Communities', 'color' => '#113263']);
 $place = $brands['58 Place'] ?? Organization::save('brands', ['name' => '58 Place', 'color' => '#8A4B6E']);
 
 $ent = [

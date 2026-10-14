@@ -121,7 +121,7 @@
   }
 
   function miniPerson(r) {
-    return '<button type="button" class="mini-person" data-person="' + r.id + '"><span class="avatar sm" style="--c:#2E5A72">' + esc(initials(r.name)) + '</span><span><strong>' + esc(r.name) + '</strong><span>' + esc(r.job_title || '') + '</span></span></button>';
+    return '<button type="button" class="mini-person" data-person="' + r.id + '"><span class="avatar sm" style="--c:#2B4F86">' + esc(initials(r.name)) + '</span><span><strong>' + esc(r.name) + '</strong><span>' + esc(r.job_title || '') + '</span></span></button>';
   }
   function initials(name) { var p = String(name).split(' '); return ((p[0] || '')[0] || '') + ((p[1] || '')[0] || ''); }
 

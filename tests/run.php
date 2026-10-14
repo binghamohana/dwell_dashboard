@@ -514,7 +514,7 @@ if (!$zip) {
         'Supervisor', 'Dotted-line manager', 'Status', 'Classification', 'Hire date', 'Original hire date', 'Term date', 'Birth month', 'Birth day', 'To check (not imported)'];
     $book = [
         'Start here' => [['Dwell Central setup workbook']],
-        'Companies' => [['Company', 'Color'], ['Dwell Communities', '#1F3D4F'], ['Acme Living', null]],
+        'Companies' => [['Company', 'Color'], ['Dwell Communities', '#1F3D4F'], ['Acme Living', null]], // old default color: ignored
         'Legal entities' => [['Legal entity', 'Full legal name', 'Type', 'Company', 'Also known as'],
             ['Dwell Communities, LLC', 'Dwell Communities Limited Liability Company', 'Employer', 'Dwell Communities', null],
             ['Acme Living LLC', null, 'Employer', 'Acme Living', 'ACME LIVING; Acme']],

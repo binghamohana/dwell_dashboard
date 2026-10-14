@@ -132,9 +132,9 @@
           var byProp = {};
           loose.forEach(function (n) { var k = n.person.property ? n.person.property.name : 'No property'; (byProp[k] = byProp[k] || []).push(n); });
           var looseKids = Object.keys(byProp).sort().map(function (k) {
-            return groupNode('loose:' + k, k, DC.plural(byProp[k].length, 'person', 'people'), '#747F89', 'sub', byProp[k]);
+            return groupNode('loose:' + k, k, DC.plural(byProp[k].length, 'person', 'people'), '#737170', 'sub', byProp[k]);
           });
-          kids.push(groupNode('loose', 'No reporting line yet', DC.plural(loose.length, 'person', 'people') + ' without a supervisor', '#747F89', 'group', looseKids));
+          kids.push(groupNode('loose', 'No reporting line yet', DC.plural(loose.length, 'person', 'people') + ' without a supervisor', '#737170', 'group', looseKids));
           if (!connected.length) {
             $hint.prop('hidden', false).html('<div class="alert alert-info">' + DC.icon('info') + '<span>No supervisors are recorded yet, so everyone is grouped by property. ' +
               (DC.can('people.edit') ? 'Add supervisors in <a href="#/admin/people">People records</a> or import the org chart.' : '') + '</span></div>');
@@ -149,7 +149,7 @@
           var kind = prop ? ({ office: 'Office', team: 'Team', property: 'Property', other: '' }[prop.kind] || '') : '';
           return {
             brand: propertyBrand(+k, props[k]),
-            node: groupNode('prop:' + k, prop ? prop.name : 'No property assigned', (kind ? kind + ' · ' : '') + DC.plural(props[k].length, 'person', 'people'), '#2E5A72', 'sub', nest(props[k])),
+            node: groupNode('prop:' + k, prop ? prop.name : 'No property assigned', (kind ? kind + ' · ' : '') + DC.plural(props[k].length, 'person', 'people'), '#113263', 'sub', nest(props[k])),
             sort: (prop && prop.kind === 'office' ? 0 : 1) + (prop ? prop.name : 'zzz')
           };
         }).sort(function (a, b) { return a.sort.localeCompare(b.sort); });
@@ -161,8 +161,8 @@
           var brandNodes = Object.keys(brands).map(function (k) {
             var b = DC.byId(L.brands, +k);
             var count = brands[k].reduce(function (s, n) { return s + countPeople(n); }, 0);
-            brands[k].forEach(function (n) { n.color = b ? b.color : '#747F89'; });
-            return groupNode('brand:' + k, b ? b.name : 'No company assigned', DC.plural(brands[k].length, 'location') + ' · ' + DC.plural(count, 'person', 'people'), b ? b.color : '#747F89', 'group', brands[k]);
+            brands[k].forEach(function (n) { n.color = b ? b.color : '#737170'; });
+            return groupNode('brand:' + k, b ? b.name : 'No company assigned', DC.plural(brands[k].length, 'location') + ' · ' + DC.plural(count, 'person', 'people'), b ? b.color : '#737170', 'group', brands[k]);
           }).sort(function (a, b) { return (a.id === 'brand:0') - (b.id === 'brand:0') || a.name.localeCompare(b.name); });
           data = { type: 'root', id: 'root', name: S.org, sub: DC.plural(list.length, 'person', 'people'), children: brandNodes };
         }
@@ -276,7 +276,7 @@
           sel.append('text').attr('class', 'oc-meta').attr('x', tx).attr('y', 70).text('On leave');
         }
       } else {
-        var c = d.data.color || '#2E5A72';
+        var c = d.data.color || '#113263';
         sel.style('--c', c);
         sel.append('rect').attr('class', 'oc-card').attr('width', s.w).attr('height', s.h).attr('rx', d.data.type === 'root' ? 32 : 14);
         if (d.data.type === 'sub') sel.append('rect').attr('class', 'oc-band').attr('x', 0).attr('y', 12).attr('width', 4).attr('height', s.h - 24).attr('rx', 2).style('fill', c);

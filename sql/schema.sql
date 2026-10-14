@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE TABLE IF NOT EXISTS brands (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name        VARCHAR(120) NOT NULL,
-  color       CHAR(7)      NOT NULL DEFAULT '#1F3D4F',
+  color       CHAR(7)      NOT NULL DEFAULT '#113263',
   sort        SMALLINT     NOT NULL DEFAULT 0,
   is_active   TINYINT(1)   NOT NULL DEFAULT 1,
   created_at  DATETIME     NOT NULL,

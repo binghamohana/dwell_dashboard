@@ -6,12 +6,13 @@ namespace Dwell\Core;
 /** Branded HTML + plain-text email bodies. Inline styles and table layout for broad client support. */
 final class EmailTemplate
 {
-    private const BRAND = '#1F3D4F';
+    // Dwell Communities palette
+    private const BRAND = '#113263';
     private const ACCENT = '#C26A43';
-    private const INK = '#1B2228';
-    private const MUTED = '#6B737B';
-    private const SAND = '#F4F1EC';
-    private const LINE = '#E2DDD5';
+    private const INK = '#3A3938';
+    private const MUTED = '#737170';
+    private const SAND = '#F5F4F4';
+    private const LINE = '#E8E6E6';
     private const FONT = 'Helvetica,Arial,sans-serif';
 
     /**
@@ -38,8 +39,12 @@ final class EmailTemplate
             . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:' . self::SAND . ';padding:28px 12px;">'
             . '<tr><td align="center">'
             . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">'
-            . '<tr><td style="padding:0 8px 14px;' . $p . 'font-size:13px;letter-spacing:3px;text-transform:uppercase;color:' . self::BRAND . ';font-weight:700;">'
-            . $e($portal) . ' <span style="color:' . self::MUTED . ';font-weight:400;letter-spacing:1px;text-transform:none;">· ' . $e($org) . '</span></td></tr>';
+            // Logo image; if the email app blocks images, the alt text shows the name instead.
+            . '<tr><td style="padding:0 8px 16px;">'
+            . '<img src="' . $e(App::url('assets/img/email-logo.png')) . '" width="180" height="51" alt="' . $e($org) . '"'
+            . ' style="display:block;border:0;outline:none;' . $p . 'font-size:16px;letter-spacing:3px;text-transform:uppercase;color:' . self::BRAND . ';font-weight:700;">'
+            . '<div style="' . $p . 'font-size:10px;letter-spacing:4px;text-transform:uppercase;color:' . self::BRAND . ';font-weight:700;margin-top:8px;">' . $e(preg_replace('/^dwell\s+/i', '', $portal)) . '</div>'
+            . '</td></tr>';
 
         if (!empty($m['banner'])) {
             $html .= '<tr><td style="padding:0 0 12px;"><div style="background:#FBF0D9;border:1px solid #EBD9AE;border-radius:10px;padding:12px 16px;'
@@ -50,7 +55,7 @@ final class EmailTemplate
         if (!empty($m['eyebrow'])) {
             $html .= '<div style="' . $p . 'font-size:12px;letter-spacing:2px;text-transform:uppercase;color:' . self::ACCENT . ';font-weight:700;margin-bottom:8px;">' . $e($m['eyebrow']) . '</div>';
         }
-        $html .= '<h1 style="margin:0 0 18px;font-family:Georgia,\'Times New Roman\',serif;font-weight:normal;font-size:28px;line-height:1.25;color:' . self::INK . ';">' . $e($m['heading']) . '</h1>';
+        $html .= '<h1 style="margin:0 0 18px;font-family:Georgia,\'Times New Roman\',serif;font-weight:normal;font-size:28px;line-height:1.25;color:' . self::BRAND . ';">' . $e($m['heading']) . '</h1>';
 
         foreach ($m['paragraphs'] ?? [] as $para) {
             $html .= '<p style="margin:0 0 16px;' . $p . 'font-size:16px;line-height:1.6;color:' . self::INK . ';">' . $nl($para) . '</p>';

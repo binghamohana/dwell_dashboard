@@ -23,6 +23,7 @@ final class Page
             'portal_name' => $portal,
             'org_name'    => Settings::get('org_name'),
             'mark'        => self::asset('assets/img/mark.svg'),
+            'logo'        => self::asset('assets/img/logo.svg'),
         ];
         $scripts = ['assets/vendor/jquery-3.7.1.min.js', 'assets/vendor/d3-7.9.0.min.js', 'assets/js/common.js', 'assets/js/app.js',
             'assets/js/dashboard.js', 'assets/js/people.js', 'assets/js/orgchart.js', 'assets/js/celebrations.js', 'assets/js/admin.js', 'assets/js/import.js'];
@@ -34,7 +35,7 @@ final class Page
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title><?= $e($portal) ?></title>
-<meta name="theme-color" content="#F4F2EE">
+<meta name="theme-color" content="#F5F4F4">
 <link rel="icon" href="<?= $e(self::asset('assets/img/favicon.svg')) ?>" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="<?= $e(self::asset('assets/css/app.css')) ?>">
@@ -57,7 +58,7 @@ final class Page
         http_response_code(503);
         header('Content-Type: text/html; charset=utf-8');
         echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Temporarily unavailable</title>'
-            . '<body style="font-family:system-ui,sans-serif;background:#F4F2EE;color:#1A2127;display:grid;place-items:center;min-height:100vh;margin:0">'
+            . '<body style="font-family:system-ui,sans-serif;background:#F5F4F4;color:#3A3938;display:grid;place-items:center;min-height:100vh;margin:0">'
             . '<div style="max-width:440px;padding:24px;text-align:center"><h1 style="font-weight:500">Dwell Central is temporarily unavailable</h1>'
             . '<p>Please try again in a few minutes. If this keeps happening, contact the system administrator.</p>'
             . (App::config('debug') ? '<pre style="text-align:left;white-space:pre-wrap;font-size:12px">' . htmlspecialchars($e->getMessage()) . '</pre>' : '')

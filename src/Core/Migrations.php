@@ -14,10 +14,14 @@ final class Migrations
         $done = [];
         // Seed the two brands named in the brief (editable under Organization).
         if (!Db::value('SELECT COUNT(*) FROM brands')) {
-            foreach ([['Dwell Communities', '#1F3D4F', 1], ['58 Place', '#8A4B6E', 2]] as [$name, $color, $sort]) {
+            foreach ([['Dwell Communities', '#113263', 1], ['58 Place', '#8A4B6E', 2]] as [$name, $color, $sort]) {
                 Db::insert('brands', ['name' => $name, 'color' => $color, 'sort' => $sort, 'created_at' => Time::nowDb(), 'updated_at' => Time::nowDb()]);
                 $done[] = "added company $name";
             }
+        }
+        // Official Dwell blue replaces the first release's default color.
+        if (Db::run("UPDATE brands SET color = '#113263', updated_at = ? WHERE color = '#1F3D4F'", [Time::nowDb()])->rowCount()) {
+            $done[] = 'updated Dwell Communities to the official blue';
         }
         Db::run("INSERT IGNORE INTO settings (name, value) VALUES ('next_employee_number', '1')");
         return $done;

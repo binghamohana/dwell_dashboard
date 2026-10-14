@@ -24,7 +24,9 @@ final class OrgSheets
         'departments' => ['Departments', 'department', ['department' => 'name', 'also known as' => 'aliases']],
     ];
 
-    private const COLORS = ['#2E6B4F', '#9A5B2E', '#4B4E8A', '#6B6F2E', '#2E5A72', '#8A4B6E'];
+    private const COLORS = ['#2E6B4F', '#9A5B2E', '#4B4E8A', '#6B6F2E', '#2B4F86', '#8A4B6E'];
+    /** The first release's default for Dwell Communities; older workbook copies still carry it. */
+    private const OLD_DEFAULT = '#1F3D4F';
 
     private static function key(mixed $v): string
     {
@@ -162,8 +164,11 @@ final class OrgSheets
                 if ($table === 'brands') {
                     $color = strtoupper(trim((string) $get('color')));
                     if ($color !== '' && !preg_match('/^#[0-9A-F]{6}$/', $color)) {
-                        $rec['issues'][] = 'Color “' . $color . '” isn’t like #1F3D4F (ignored)';
+                        $rec['issues'][] = 'Color “' . $color . '” isn’t like #113263 (ignored)';
                         $color = '';
+                    }
+                    if ($color === self::OLD_DEFAULT) {
+                        $color = ''; // keep the official blue set since
                     }
                     if ($color !== '') {
                         $input['color'] = $color;

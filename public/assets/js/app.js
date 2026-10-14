@@ -12,7 +12,12 @@
 
   // ------------------------------------------------------------------ lookups
   DC.byId = function (list, id) { id = +id; for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; };
-  DC.brandColor = function (person) { return (person && person.brand && person.brand.color) || '#2E5A72'; };
+  DC.brandColor = function (person) { return (person && person.brand && person.brand.color) || '#2B4F86'; };
+  /** "Dwell Central" → "Central" under the Dwell Communities logo (the full name if it doesn't start with Dwell). */
+  DC.portalLabel = function () { var n = S.portal || boot.portal_name || ''; return /^dwell\s+/i.test(n) ? n.replace(/^dwell\s+/i, '') : n; };
+  DC.logoHtml = function (cls) {
+    return '<img class="' + (cls || 'logo') + '" src="' + esc(boot.logo) + '" alt="' + esc(S.org || boot.org_name) + '" width="410" height="116"><span class="portal-label">' + esc(DC.portalLabel()) + '</span>';
+  };
   DC.options = function (list, selected, empty, labelFn) {
     var html = empty !== false ? '<option value="">' + esc(empty || '—') + '</option>' : '';
     list.forEach(function (o) {
@@ -99,7 +104,7 @@
 
   function loginCard(inner) {
     $root.html('<div class="login"><div class="login-card">' +
-      '<div class="login-brand"><img src="' + esc(boot.mark) + '" alt=""><div><strong>' + esc(S.portal || boot.portal_name) + '</strong><span>' + esc(S.org || boot.org_name) + '</span></div></div>' +
+      '<div class="login-brand">' + DC.logoHtml() + '</div>' +
       inner +
       '<div class="private-note">' + DC.icon('lock') + '<span>A private personnel application for authorized ' + esc(S.org || boot.org_name) + ' staff. Activity is logged.</span></div>' +
       '</div></div>');
@@ -191,13 +196,13 @@
   function renderShell() {
     var nav = navItems();
     var links = navHtml(nav.main) + (nav.admin.length ? '<div class="side-label">Administration</div>' + navHtml(nav.admin) : '');
-    var brand = '<img src="' + esc(boot.mark) + '" alt=""><div><strong>' + esc(S.portal) + '</strong><span>' + esc(S.org) + '</span></div>';
+    var brand = DC.logoHtml();
     $root.html(
       '<div class="shell">' +
         '<aside class="side"><a class="side-brand" href="#/">' + brand + '</a><div class="side-label">Team</div>' + links +
           '<div class="side-foot"><div class="js-mode"></div><div><strong>' + esc(S.me.name) + '</strong>' + esc(S.me.role_label) + '</div>' +
           '<div class="links">' + (S.me.has_password ? '<button type="button" class="js-password">Password</button>' : '') + '<button type="button" class="js-logout">Sign out</button></div></div></aside>' +
-        '<div style="min-width:0"><header class="topbar"><img src="' + esc(boot.mark) + '" alt=""><strong>' + esc(S.portal) + '</strong>' +
+        '<div style="min-width:0"><header class="topbar"><a href="#/" style="display:flex;flex-direction:column;text-decoration:none">' + DC.logoHtml() + '</a>' +
           '<button type="button" class="icon-btn js-menu" aria-label="Menu">' + DC.icon('menu') + '</button></header>' +
           '<main class="content" id="main"></main></div>' +
       '</div>' +

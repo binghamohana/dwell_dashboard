@@ -12,7 +12,10 @@ final class Http
         header('Referrer-Policy: same-origin');
         header('X-Robots-Tag: noindex, nofollow');
         header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
-        header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
+        // Email previews load the logo from base_url, which may differ from the address in the browser (www or not).
+        $base = parse_url(App::baseUrl());
+        $origin = isset($base['scheme'], $base['host']) ? ' ' . $base['scheme'] . '://' . $base['host'] . (isset($base['port']) ? ':' . $base['port'] : '') : '';
+        header("Content-Security-Policy: default-src 'self'; img-src 'self'$origin data: blob:; style-src 'self' 'unsafe-inline'; "
             . "script-src 'self'; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; "
             . "form-action 'self' https://accounts.google.com");
         if (self::isHttps()) {

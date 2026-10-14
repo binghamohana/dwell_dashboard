@@ -16,7 +16,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 OUT = sys.argv[1]
 PREFILL = json.load(open(sys.argv[2])) if len(sys.argv) > 2 else {}
 
-BRAND = '1F3D4F'
+BRAND = '113263'
 HEAD_FILL = PatternFill('solid', fgColor=BRAND)
 HEAD_FONT = Font(bold=True, color='FFFFFF', name='Calibri', size=11)
 NOTE_FILL = PatternFill('solid', fgColor='F4F1EC')
@@ -109,10 +109,10 @@ if PREFILL.get('intro'):
 # ------------------------------------------------------------------ organization sheets
 ORG_ROWS = 200
 PEOPLE_ROWS = 500
-companies = PREFILL.get('companies', [['Dwell Communities', '#1F3D4F'], ['58 Place', '#8A4B6E']])
+companies = PREFILL.get('companies', [['Dwell Communities', '#113263'], ['58 Place', '#8A4B6E']])
 sheet('Companies', [
     ('Company', 30, 'The brand people belong to.'),
-    ('Color', 12, 'Optional. Used in the org chart, like #1F3D4F.'),
+    ('Color', 12, 'Optional. Used in the org chart, like #113263.'),
     ('Notes (not imported)', 50, None),
 ], companies, ORG_ROWS)
 

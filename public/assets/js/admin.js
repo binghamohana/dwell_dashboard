@@ -224,7 +224,7 @@
     }
 
     function edit(rec) {
-      rec = rec || { is_active: true, color: '#2E5A72', kind: tab === 'entities' ? 'employer' : 'property', sort: 0 };
+      rec = rec || { is_active: true, color: '#2B4F86', kind: tab === 'entities' ? 'employer' : 'property', sort: 0 };
       var personOpts = '<option value="">None</option>' + people.map(function (p) { return '<option value="' + p.id + '"' + (rec.manager_id === p.id ? ' selected' : '') + '>' + esc(p.name + (p.job_title ? ' — ' + p.job_title : '')) + '</option>'; }).join('');
       var h = '<form novalidate><div class="field"><label>Name</label><input class="input" name="name" value="' + esc(rec.name || '') + '" maxlength="160"></div>';
       if (tab === 'brands') h += '<div class="field"><label>Color</label><div style="display:flex;gap:8px;align-items:center"><input type="color" name="colorpick" value="' + esc(rec.color) + '" style="width:48px;height:40px;border:1px solid var(--line);border-radius:8px;padding:2px;background:#fff"><input class="input" name="color" value="' + esc(rec.color) + '" maxlength="7" style="max-width:130px"></div></div>';

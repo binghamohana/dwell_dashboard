@@ -104,7 +104,7 @@ final class Organization
                 case 'color':
                     $v = strtoupper(trim((string) $v));
                     if (!preg_match('/^#[0-9A-F]{6}$/', $v)) {
-                        throw new AppError('Pick a color like #1F3D4F.', 400, 'color');
+                        throw new AppError('Pick a color like #113263.', 400, 'color');
                     }
                     $data[$f] = $v;
                     break;
